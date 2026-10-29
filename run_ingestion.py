@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from pipeline.config import BASE_DIR, OUTPUT_ROOT
 
-BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_ROOT = BASE_DIR / "outputs"
+
 
 
 def utc_now():
