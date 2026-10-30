@@ -141,7 +141,7 @@ export default function DataHygiene({ baselineRunId }) {
     {
       label: "Business Review Warnings",
       value: data.summary.business_review_count,
-      detail: "Open deals with past expected close dates",
+      detail: "Stale close dates and stage-age inconsistencies",
       color: "text-amber-700",
     },
   ];

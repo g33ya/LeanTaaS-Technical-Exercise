@@ -17,7 +17,7 @@ export default function KpiSummary({ summary }) {
       value: money(summary.longtail_expected_value),
       detail:
         `Salesforce ${money(summary.salesforce_longtail_expected_value)} · ` +
-        `CareBridge ${money(summary.hubspot_longtail_expected_value)}`,
+        `CareBridge (HubSpot) ${money(summary.hubspot_longtail_expected_value)}`,
     },
     {
       label: `Variance to ${money(summary.board_target)} Target`,

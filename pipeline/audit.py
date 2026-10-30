@@ -84,7 +84,10 @@ def build_audit_log(events, current_checked, hubspot_checked):
             audit.at[index, "status"] = "accepted_assumption"
             audit.at[index, "resolution"] = conflict_resolutions[row_location]
 
-        elif issue == "Open deal has a close date before 2026-10-15":
+        elif (
+            issue == "Open deal has a close date before 2026-10-15"
+            or row.get("issue_code") == "STAGE_AGE_NOT_RESET"
+        ):
             audit.at[index, "status"] = "business_review"
 
         elif issue == "Stored scorecard value disagrees with deterministic rules":

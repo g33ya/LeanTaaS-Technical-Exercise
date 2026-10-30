@@ -4,7 +4,9 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 
-from forecast import BOARD_TARGET, build_forecast, read_clean_table
+from forecast import (
+    BOARD_TARGET, build_forecast, calculate_expected_value, read_clean_table,
+)
 from pipeline.config import AS_OF_DATE, OUTPUT_ROOT, TARGET_PERIOD
 
 from copy import deepcopy
@@ -137,7 +139,13 @@ def baseline():
         strategic = group_value("Strategic")
         salesforce_longtail = group_value("Salesforce longtail")
         hubspot_longtail = group_value("HubSpot longtail")
-        total = strategic + salesforce_longtail + hubspot_longtail
+        total_decimal = sum(
+            (Decimal(str(value)) for value in [
+                strategic, salesforce_longtail, hubspot_longtail
+            ]),
+            Decimal(0),
+        )
+        total = float(total_decimal)
 
         return {
             "run_id": pointer["run_id"],
@@ -148,13 +156,13 @@ def baseline():
                 "total_expected_sales": total,
                 "strategic_expected_value": strategic,
                 "longtail_expected_value": (
-                    salesforce_longtail + hubspot_longtail
+                    float(Decimal(str(salesforce_longtail)) + Decimal(str(hubspot_longtail)))
                 ),
                 "salesforce_longtail_expected_value": salesforce_longtail,
                 "hubspot_longtail_expected_value": hubspot_longtail,
                 "board_target": BOARD_TARGET,
-                "variance_to_target": total - BOARD_TARGET,
-                "target_attainment": total / BOARD_TARGET,
+                "variance_to_target": float(total_decimal - BOARD_TARGET),
+                "target_attainment": float(total_decimal / BOARD_TARGET),
                 "eligible_deal_count": len(deals),
                 "strategic_deal_count": len(scores),
             },
@@ -278,9 +286,7 @@ def scenario(request: ScenarioRequest):
             deal["scores"] = None
             deal["composite_gpa"] = None
 
-        expected = (
-            Decimal(str(deal["annual_acv"])) * probability
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        expected = calculate_expected_value(deal["annual_acv"], probability)
 
         deal["probability"] = float(probability)
         deal["expected_value"] = float(expected)

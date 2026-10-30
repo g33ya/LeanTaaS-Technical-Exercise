@@ -17,7 +17,7 @@ from pipeline.reconciliation import (
 from pipeline.validation import (
     check_cleaning_readiness, mark_forecast_eligibility,
     validate_categories_and_keys, validate_scorecard_probabilities,
-    validate_stage_probabilities, validate_table,
+    validate_stage_probabilities, validate_stage_aging, validate_table,
 )
 
 # The runner reads completed audit events if a stage fails.
@@ -161,6 +161,7 @@ def main(output_dir=None):
     all_issues += category_key_issues
     if category_key_issues:
         raise ValueError('Category or key validation failed. Review the issues above.')
+    all_issues += validate_stage_aging(current_checked, prior_checked)
     scorecard_ready = refresh_scorecard_salesforce(scorecard_checked, current_checked)
     check_cleaning_readiness(current_checked, prior_checked, hubspot_checked, scorecard_ready)
 

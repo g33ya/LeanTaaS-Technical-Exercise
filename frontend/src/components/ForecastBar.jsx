@@ -13,7 +13,7 @@ export default function ForecastBar({ summary }) {
       color: "#00a8bd",
     },
     {
-      label: "CareBridge longtail",
+      label: "CareBridge (HubSpot) longtail",
       value: summary.hubspot_longtail_expected_value,
       color: "#7bdce3",
     },

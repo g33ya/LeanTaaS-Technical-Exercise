@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 
 import pandas as pd
@@ -7,6 +8,20 @@ from pipeline.config import OUTPUT_ROOT
 
 
 BOARD_TARGET = 12_000_000
+
+
+def calculate_expected_value(annual_acv, probability):
+    """Use one decimal, per-deal cent-rounding policy for every forecast."""
+    amount = Decimal(str(annual_acv))
+    chance = Decimal(str(probability))
+    if (
+        not amount.is_finite()
+        or not chance.is_finite()
+        or amount < 0
+        or not Decimal(0) <= chance <= Decimal(1)
+    ):
+        raise ValueError("Invalid ACV or probability.")
+    return (amount * chance).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def read_clean_table(run_dir, filename):
@@ -74,13 +89,20 @@ def build_forecast(current, hubspot, scorecard):
             & result["annual_acv"].ge(0)
             & result["annual_acv"].lt(float("inf"))
         )
-        valid_probability = result["probability"].between(0, 1)
+        valid_probability = (
+            result["probability"].notna()
+            & result["probability"].between(0, 1)
+        )
 
-        if not (valid_acv & valid_probability).all():
+        if not (valid_acv & valid_probability).fillna(False).all():
             raise ValueError(f"{group}: invalid ACV or probability.")
 
-        result["expected_value"] = (
-            result["annual_acv"] * result["probability"]
+        result["expected_value"] = pd.Series(
+            [calculate_expected_value(amount, chance) for amount, chance in zip(
+                result["annual_acv"], result["probability"]
+            )],
+            index=result.index,
+            dtype=object,
         )
         return result
 

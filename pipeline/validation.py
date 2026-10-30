@@ -450,6 +450,47 @@ def validate_categories_and_keys(df, source_type):
     return issues
 
 
+def validate_stage_aging(current_df, prior_df):
+    """Flag apparent failure to reset stage age without changing source values."""
+    comparison = current_df.merge(
+        prior_df[["sf_match_key", "Stage", "Days_In_Stage"]],
+        on="sf_match_key",
+        how="inner",
+        suffixes=("", "_prior"),
+        validate="one_to_one",
+    )
+    issues = []
+    for _, row in comparison.iterrows():
+        previous_days = row["Days_In_Stage_prior"]
+        current_days = row["Days_In_Stage"]
+        if (
+            row["Stage"] in OPEN_STAGES["salesforce"]
+            and row["Stage_prior"] in OPEN_STAGES["salesforce"]
+            and row["Stage"] != row["Stage_prior"]
+            and pd.notna(previous_days)
+            and pd.notna(current_days)
+            and current_days > 0
+            and current_days >= previous_days
+        ):
+            issues.append({
+                "source_file": row["source_file"],
+                "source_row": int(row["source_row"]),
+                "column": "Days_In_Stage",
+                "raw_value": current_days,
+                "issue_code": "STAGE_AGE_NOT_RESET",
+                "issue": "Stage changed but days in stage did not decrease",
+                "prior_stage": row["Stage_prior"],
+                "current_stage": row["Stage"],
+                "prior_days_in_stage": previous_days,
+                "opportunity_id": row["Opportunity_ID"],
+                "resolution": (
+                    "Original value preserved; clarify stage-age semantics. "
+                    "This field does not affect forecast calculations."
+                ),
+            })
+    return issues
+
+
 def check_cleaning_readiness(current_df, prior_df, hubspot_df, scorecard_df):
     problems = []
 
