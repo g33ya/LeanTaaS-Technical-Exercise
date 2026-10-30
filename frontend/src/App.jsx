@@ -4,6 +4,7 @@ import { displayDate } from "./format";
 import KpiSummary from "./components/KpiSummary";
 import ForecastBar from "./components/ForecastBar";
 import DealRoom from "./components/DealRoom";
+import WeeklyMovements from "./components/WeeklyMovements";
 
 export default function App() {
   const [baseline, setBaseline] = useState(null);
@@ -11,6 +12,7 @@ export default function App() {
   const [loadError, setLoadError] = useState("");
   const [scenarioError, setScenarioError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState("forecast");
 
   const requestLock = useRef(false);
   const scenarioController = useRef(null);
@@ -80,28 +82,40 @@ export default function App() {
         </div>
 
         <nav aria-label="Main navigation" className="space-y-1 pb-4">
-          <a
-            href="#forecast"
-            aria-current="page"
-            className="block border-l-4 border-cyan-300 bg-cyan-600 px-5 py-4 text-sm font-semibold"
-          >
-            Forecast & Deal Room
-          </a>
-          <p className="px-6 py-3 text-sm text-slate-400">
-            Weekly Movements · Coming next
-          </p>
+          {[
+            ["forecast", "Forecast & Deal Room"],
+            ["movements", "Weekly Movements"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              aria-current={page === key ? "page" : undefined}
+              onClick={() => setPage(key)}
+              className={`block w-full border-l-4 px-5 py-4 text-left text-sm font-semibold ${
+                page === key
+                  ? "border-cyan-300 bg-cyan-600"
+                  : "border-transparent text-slate-200 hover:bg-white/10"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+
           <p className="px-6 py-3 text-sm text-slate-400">
             Data Hygiene · Coming next
           </p>
         </nav>
       </aside>
 
-      <main id="forecast" className="lg:ml-56">
+      <main className="lg:ml-56">
         <header className="flex min-h-14 items-center justify-end border-b border-slate-200 bg-white/70 px-6 text-sm text-slate-500">
           {data ? `As of ${displayDate(data.as_of_date)}` : "Q4 2026"}
         </header>
 
-        <div className="mx-auto max-w-[1800px] space-y-6 p-4 sm:p-7">
+        <div
+          hidden={page !== "forecast"}
+          className="mx-auto max-w-[1800px] space-y-6 p-4 sm:p-7"
+        >
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-bold tracking-tight">
@@ -149,6 +163,11 @@ export default function App() {
             </>
           )}
         </div>
+        {page === "movements" && (
+          <div className="mx-auto max-w-[1800px] p-4 sm:p-7">
+            <WeeklyMovements baselineRunId={baseline?.run_id} />
+          </div>
+        )}
       </main>
     </div>
   );
