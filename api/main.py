@@ -397,3 +397,123 @@ def movements():
                 "Run ingestion successfully and check the server logs."
             ),
         ) from None
+
+@app.get("/api/audit")
+def audit():
+    try:
+        pointer = json.loads(
+            (OUTPUT_ROOT / "latest_successful_run.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        if pointer["status"] != "succeeded" or not pointer["outputs_ready"]:
+            raise ValueError("Cleaning outputs are not ready.")
+
+        run_dir = Path(pointer["output_directory"])
+        table = read_clean_table(run_dir, "audit_log.csv")
+
+        required_columns = {
+            "event_id",
+            "source_file",
+            "source_row",
+            "column",
+            "raw_value",
+            "issue",
+            "status",
+            "resolution",
+            "reason",
+        }
+
+        missing = required_columns - set(table.columns)
+        if missing:
+            raise ValueError(
+                f"Audit columns are missing: {sorted(missing)}"
+            )
+
+        if table["event_id"].eq("").any() or table["event_id"].duplicated().any():
+            raise ValueError("Audit event IDs are missing or duplicated.")
+
+        status_labels = {
+            "resolved": "Resolved",
+            "accepted_assumption": "Accepted assumption",
+            "business_review": "Business review",
+            "baseline_rule_applied": "Baseline rule applied",
+            "excluded_from_forecast": "Excluded from forecast",
+            "requires_review": "Requires review",
+        }
+
+        counts = {
+            status: int(table["status"].eq(status).sum())
+            for status in status_labels
+        }
+
+        unknown_statuses = set(table["status"]) - set(status_labels)
+        if unknown_statuses:
+            raise ValueError(
+                f"Unknown audit statuses: {sorted(unknown_statuses)}"
+            )
+
+        events = []
+
+        for record in table.to_dict("records"):
+            # Blank optional cells become JSON null.
+            event = {
+                key: None if value == "" else value
+                for key, value in record.items()
+            }
+
+            # These fields represent source locations or removal counts.
+            for column in [
+                "source_row",
+                "selected_source_row",
+                "rows_removed",
+                "columns_removed",
+            ]:
+                if event.get(column) is not None:
+                    event[column] = int(float(event[column]))
+
+            event["status_label"] = status_labels[event["status"]]
+            events.append(event)
+
+        return {
+            "run_id": pointer["run_id"],
+            "data_processed_at": pointer["finished_at"],
+            "as_of_date": AS_OF_DATE.date().isoformat(),
+            "summary": {
+                "total_events": len(events),
+                "counts_by_status": counts,
+                "requires_review_count": counts["requires_review"],
+                "business_review_count": counts["business_review"],
+                "accepted_assumption_events": counts["accepted_assumption"],
+            },
+            "filters": {
+                "source_files": sorted(
+                    table.loc[
+                        table["source_file"].ne(""), "source_file"
+                    ].unique().tolist()
+                ),
+                "statuses": [
+                    {"value": status, "label": label}
+                    for status, label in status_labels.items()
+                    if counts[status] > 0
+                ],
+            },
+            "events": events,
+            "notes": [
+                "Counts represent audit events, not unique data problems.",
+                "Detection and resolution may appear as separate events.",
+                "Accepted assumptions are documented decisions, not verified facts.",
+                "Business-review warnings remain visible after cleaning succeeds.",
+            ],
+        }
+
+    except (OSError, ValueError, KeyError, TypeError, OverflowError):
+        logger.exception("Unable to build audit response")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Audit data is unavailable or invalid. "
+                "Run ingestion successfully and check the server logs."
+            ),
+        ) from None

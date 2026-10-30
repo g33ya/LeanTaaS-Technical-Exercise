@@ -36,3 +36,7 @@ export function calculateScenario(runId, strategicDeals, signal) {
 export function getMovements(signal) {
   return request("/movements", { signal });
 }
+
+export function getAudit(signal) {
+  return request("/audit", { signal });
+}

@@ -5,6 +5,7 @@ import KpiSummary from "./components/KpiSummary";
 import ForecastBar from "./components/ForecastBar";
 import DealRoom from "./components/DealRoom";
 import WeeklyMovements from "./components/WeeklyMovements";
+import DataHygiene from "./components/DataHygiene";
 
 export default function App() {
   const [baseline, setBaseline] = useState(null);
@@ -85,6 +86,7 @@ export default function App() {
           {[
             ["forecast", "Forecast & Deal Room"],
             ["movements", "Weekly Movements"],
+            ["hygiene", "Data Hygiene"],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -100,10 +102,6 @@ export default function App() {
               {label}
             </button>
           ))}
-
-          <p className="px-6 py-3 text-sm text-slate-400">
-            Data Hygiene · Coming next
-          </p>
         </nav>
       </aside>
 
@@ -166,6 +164,11 @@ export default function App() {
         {page === "movements" && (
           <div className="mx-auto max-w-[1800px] p-4 sm:p-7">
             <WeeklyMovements baselineRunId={baseline?.run_id} />
+          </div>
+        )}
+        {page === "hygiene" && (
+          <div className="mx-auto max-w-[1800px] p-4 sm:p-7">
+            <DataHygiene baselineRunId={baseline?.run_id} />
           </div>
         )}
       </main>
