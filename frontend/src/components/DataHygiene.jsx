@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getAudit } from "../api";
+import WarningIcon from "./WarningIcon";
 
 const SOURCE_LABELS = {
   "1_sfdc_pipeline_current.csv": "Salesforce · Current",
@@ -168,7 +169,12 @@ export default function DataHygiene({ baselineRunId }) {
         {cards.map((card) => (
           <article key={card.label} className="panel p-5">
             <h2 className="text-sm font-medium text-slate-600">
-              {card.label}
+              <span className="inline-flex items-center gap-2">
+                {card.label === "Business Review Warnings" && card.value > 0 && (
+                  <WarningIcon className="h-5 w-5 text-amber-600" />
+                )}
+                {card.label}
+              </span>
             </h2>
             <p className={`mt-2 text-4xl font-bold ${card.color}`}>
               {card.value}
@@ -328,7 +334,10 @@ export default function DataHygiene({ baselineRunId }) {
                         "bg-slate-100 text-slate-700"
                       }`}
                     >
-                      {event.status_label}
+                      <span className="inline-flex items-center gap-1.5">
+                        {event.status === "business_review" && <WarningIcon />}
+                        {event.status_label}
+                      </span>
                     </span>
                   </td>
                 </tr>

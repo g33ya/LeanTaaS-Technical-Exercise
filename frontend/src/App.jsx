@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { calculateScenario, getBaseline } from "./api";
+import { calculateScenario, getAudit, getBaseline } from "./api";
 import { displayDate } from "./format";
 import KpiSummary from "./components/KpiSummary";
 import ForecastBar from "./components/ForecastBar";
 import DealRoom from "./components/DealRoom";
 import WeeklyMovements from "./components/WeeklyMovements";
 import DataHygiene from "./components/DataHygiene";
+import WarningIcon from "./components/WarningIcon";
 
 export default function App() {
   const [baseline, setBaseline] = useState(null);
@@ -14,6 +15,8 @@ export default function App() {
   const [scenarioError, setScenarioError] = useState("");
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState("forecast");
+  const [auditData, setAuditData] = useState(null);
+  const [auditLoadError, setAuditLoadError] = useState(false);
 
   const requestLock = useRef(false);
   const scenarioController = useRef(null);
@@ -29,6 +32,14 @@ export default function App() {
       })
       .catch((error) => {
         if (!controller.signal.aborted) setLoadError(error.message);
+      });
+
+    getAudit(controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) setAuditData(result);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAuditLoadError(true);
       });
 
     return () => {
@@ -69,6 +80,10 @@ export default function App() {
     setScenarioError("");
   }
 
+  const reviewCount = auditData?.run_id === baseline?.run_id
+    ? auditData?.summary.business_review_count ?? 0
+    : null;
+
   return (
     <div className="min-h-screen bg-[#f4f7fb] text-[#102f4f]">
       <aside className="bg-[#103653] text-white lg:fixed lg:inset-y-0 lg:w-56">
@@ -99,7 +114,25 @@ export default function App() {
                   : "border-transparent text-slate-200 hover:bg-white/10"
               }`}
             >
-              {label}
+              <span className="flex items-center justify-between gap-2">
+                {label}
+                {key === "hygiene" && reviewCount > 0 && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900"
+                    title={`${reviewCount} business-review warnings`}
+                    aria-label={`${reviewCount} business-review warnings`}
+                  >
+                    <WarningIcon />
+                    {reviewCount}
+                  </span>
+                )}
+                {key === "hygiene" && auditLoadError && (
+                  <span title="Warning count unavailable; open Data Hygiene to retry">
+                    <span className="sr-only">Warning count unavailable</span>
+                    <WarningIcon className="h-4 w-4 text-amber-300" />
+                  </span>
+                )}
+              </span>
             </button>
           ))}
         </nav>
