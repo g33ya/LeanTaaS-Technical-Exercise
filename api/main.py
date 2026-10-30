@@ -15,6 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from pipeline.validation import probability_from_gpa
 
+from movements import build_movements
+
 
 app = FastAPI(title="PulseFlow Forecast API")
 logger = logging.getLogger(__name__)
@@ -325,3 +327,73 @@ def scenario(request: ScenarioRequest):
     }
 
     return result
+
+@app.get("/api/movements")
+def movements():
+    try:
+        pointer = json.loads(
+            (OUTPUT_ROOT / "latest_successful_run.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        if pointer["status"] != "succeeded" or not pointer["outputs_ready"]:
+            raise ValueError("Cleaning outputs are not ready.")
+
+        run_dir = Path(pointer["output_directory"])
+
+        current = read_clean_table(
+            run_dir, "salesforce_current_clean.csv"
+        )
+        prior = read_clean_table(
+            run_dir, "salesforce_prior_clean.csv"
+        )
+
+        events, missing = build_movements(current, prior)
+
+        categories = [
+            "New deal",
+            "Slipped to Q1-2027",
+            "Closed Lost",
+            "Stage move",
+            "ACV change",
+        ]
+
+        counts = {
+            category: int(events["category"].eq(category).sum())
+            for category in categories
+        }
+
+        acv_changes = events.loc[
+            events["category"].eq("ACV change"), "acv_change"
+        ]
+
+        return {
+            "run_id": pointer["run_id"],
+            "data_processed_at": pointer["finished_at"],
+            "as_of_date": AS_OF_DATE.date().isoformat(),
+            "fiscal_period": TARGET_PERIOD,
+            "counts": counts,
+            "net_acv_change": float(acv_changes.sum()),
+            # DataFrame JSON conversion handles missing values as null.
+            "events": json.loads(events.to_json(orient="records")),
+            "missing_from_current": json.loads(
+                missing.to_json(orient="records")
+            ),
+            "notes": [
+                "A deal may appear in multiple movement categories.",
+                "New means newly present in the Salesforce export.",
+                "Stage and ACV changes apply to currently active Q4 deals.",
+                "ACV changes are unweighted contract values, not forecast changes.",
+            ],
+        }
+
+    except (OSError, ValueError, KeyError, TypeError):
+        logger.exception("Unable to build movement response")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Movement data is unavailable or invalid. "
+                "Run ingestion successfully and check the server logs."
+            ),
+        ) from None
