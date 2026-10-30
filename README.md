@@ -17,6 +17,10 @@ python run_ingestion.py
 python -m uvicorn api.main:app --reload
 ```
 
+*Note: On Windows, if `python` is not recognized, use `py -m venv .venv`
+to create the virtual environment. After activating it, use `python`
+for the remaining commands.*
+
 In a second terminal, from the repository root:
 
 ```powershell
